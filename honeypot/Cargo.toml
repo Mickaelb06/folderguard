@@ -1,0 +1,9 @@
+[package]
+name = "honeypot"            # nom du programme : on lancera `honeypot 2323 telnet`
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Faux service réseau qui journalise les tentatives de connexion (aucune dépendance externe)"
+
+[dependencies]
+# aucune : uniquement la bibliothèque standard de Rust

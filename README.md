@@ -8,7 +8,7 @@ Petits outils de défense, construits pour apprendre la logique de détection d'
 |---|---|---|
 | [`fim`](fim/) | File Integrity Monitor en ligne de commande : détecte les fichiers modifiés, ajoutés ou supprimés | Disponible |
 | [Site web](https://mickaelb06.github.io/folderguard/) | Même contrôle dans le navigateur : on dépose un dossier, rien n'est envoyé (code dans [`docs/`](docs/)) | Disponible |
-| `honeypot` | Faux service réseau qui journalise les tentatives de connexion | À venir |
+| [`honeypot`](honeypot/) | Faux service réseau qui journalise les tentatives de connexion | Disponible |
 
 ## Site web
 
@@ -71,6 +71,49 @@ Ce type d'outil aide à détecter notamment :
 - Exclusions par motif (par exemple `*.log`).
 - Vérification des permissions.
 - Surveillance en temps réel avec les notifications du système de fichiers.
+
+## honeypot
+
+### Principe
+Un honeypot est un leurre : un faux service que personne n'a de raison légitime d'utiliser. Toute connexion est donc suspecte. Celui-ci écoute sur un port, joue un faux service, note ce que le visiteur envoie puis ferme la connexion. **Il n'exécute jamais rien et ne donne accès à rien.**
+
+Deux services :
+- `telnet` : faux écran de connexion (identifiant puis mot de passe, toujours refusé, 3 essais). Le journal contient les identifiants testés.
+- `ssh` : fausse bannière OpenSSH. Le journal contient le logiciel annoncé par le client (utile pour repérer les outils de scan).
+
+### Utilisation
+```bash
+cargo build --release
+./target/release/honeypot [port] [telnet|ssh] [journal]
+# exemple : ./target/release/honeypot 2323 telnet honeypot.log
+```
+Par défaut : port `2323`, service `telnet`, journal `honeypot.log`. Pour tester :
+```bash
+telnet 127.0.0.1 2323
+```
+
+### Journal
+Une ligne JSON par événement (`connexion`, `tentative` ou `donnees`, `fermeture`) :
+```json
+{"ts":"2026-10-11T14:46:12Z","ip":"203.0.113.7","port":2323,"service":"telnet","evenement":"tentative","identifiant":"admin","mot_de_passe":"admin123"}
+```
+Tout ce que le visiteur envoie est échappé : il ne peut pas casser le format du journal.
+
+### Précautions
+- Ne l'expose pas sur Internet depuis ton réseau personnel sans isoler la machine (VM, conteneur ou VPS dédié). Il ne contient aucune faille connue, mais un programme exposé reste une surface d'attaque.
+- Les ports inférieurs à 1024 (23, 22) demandent des droits administrateur : garde un port élevé et redirige-le depuis le pare-feu si besoin.
+- Le journal contient des adresses IP : il est exclu de Git par le `.gitignore`.
+- Limites : 50 visiteurs simultanés, 20 secondes d'inactivité, 256 octets par ligne.
+
+### Lien avec MITRE ATT&CK
+- T1110 Brute Force (identifiants testés)
+- T1046 Network Service Discovery (scans de ports)
+- T1078 Valid Accounts (identifiants volés réutilisés)
+
+### Pistes d'amélioration
+- Résumé du journal (IP les plus actives, mots de passe les plus testés).
+- Autres faux services (HTTP, FTP, base de données).
+- Blocage ou alerte après N tentatives.
 
 ## Licence
 MIT : voir le fichier [LICENSE](LICENSE).
