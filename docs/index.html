@@ -259,13 +259,19 @@ footer { border-top: 1px solid var(--line); padding-block: 28px; color: var(--mu
   // ---------- Stockage (le navigateur peut le refuser : tout est protégé) ----------
   function lirePhoto() { try { return JSON.parse(localStorage.getItem(CLE)); } catch (e) { return memoire; } }
   var memoire = null; // repli si le stockage est bloqué : la photo tient jusqu'à la fermeture de la page
-  function ecrirePhoto(p) { memoire = p; try { if (p) localStorage.setItem(CLE, JSON.stringify(p)); else localStorage.removeItem(CLE); } catch (e) {} }
+  var stockageBloque = false; // devient vrai si le navigateur refuse de garder la photo
+  function ecrirePhoto(p) {
+    memoire = p;
+    try { if (p) localStorage.setItem(CLE, JSON.stringify(p)); else localStorage.removeItem(CLE); stockageBloque = false; }
+    catch (e) { stockageBloque = true; }
+  }
 
   function afficherPhoto() {
     var p = lirePhoto();
     if (p && p.fichiers) {
       var n = Object.keys(p.fichiers).length;
       $('photo-info').textContent = 'Dossier « ' + p.nom + ' », ' + n + ' fichier(s), prise le ' + new Date(p.date).toLocaleString('fr-FR') + '.';
+      if (stockageBloque) $('photo-info').textContent += ' Attention : ton navigateur refuse de la garder après la fermeture de la page. Ouvre « Copier ou restaurer la photo » ci-dessous et copie le texte dans un fichier.';
       $('effacer').hidden = false;
       $('export').value = JSON.stringify(p);
     } else {
@@ -366,10 +372,11 @@ footer { border-top: 1px solid var(--line); padding-block: 28px; color: var(--mu
     r.hidden = false; r.replaceChildren();
     try { r.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
     if (!p || !p.fichiers) {
-      r.append(el('h3', null, 'Dossier « ' + fichiersLus.nom + ' » lu'));
-      r.append(el('p', null, n + ' fichier(s) trouvé(s). Pas encore de photo : enregistre-la maintenant, tant que le dossier est sain.'));
-      var b = el('button', 'main', 'Enregistrer cette photo'); b.type = 'button'; b.onclick = enregistrerPhoto;
-      r.append(b); return;
+      ecrirePhoto({ nom: fichiersLus.nom, date: Date.now(), fichiers: fichiersLus.fichiers });
+      afficherPhoto();
+      r.append(el('p', 'verdict ok', 'Première photo enregistrée'));
+      r.append(el('p', null, n + ' fichier(s) du dossier « ' + fichiersLus.nom + ' » ont été mémorisés. Redépose le même dossier plus tard : le site te dira ce qui a changé.'));
+      return;
     }
     var d = comparer(p.fichiers, fichiersLus.fichiers, fichiersLus.illisibles);
     var nb = d.mod.length + d.ajo.length + d.sup.length + d.ill.length + fichiersLus.illisibles.length;
@@ -422,7 +429,7 @@ footer { border-top: 1px solid var(--line); padding-block: 28px; color: var(--mu
     })().catch(function () { montrerErreur('Impossible de lire ce dossier.'); });
   });
 
-  $('effacer').addEventListener('click', function () { ecrirePhoto(null); afficherPhoto(); if (fichiersLus) montrerResultat(); });
+  $('effacer').addEventListener('click', function () { ecrirePhoto(null); fichiersLus = null; $('resultat').hidden = true; afficherPhoto(); });
   $('restaurer').addEventListener('click', function () {
     try {
       var p = JSON.parse($('export').value);
