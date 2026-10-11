@@ -105,13 +105,15 @@ Tout ce que le visiteur envoie est échappé : il ne peut pas casser le format d
 - Le journal contient des adresses IP : il est exclu de Git par le `.gitignore`.
 - Limites : 50 visiteurs simultanés, 20 secondes d'inactivité, 256 octets par ligne.
 
+### Tableau de bord
+La page [`docs/honeypot.html`](docs/honeypot.html) (en ligne : https://mickaelb06.github.io/folderguard/honeypot.html) lit le journal : on dépose `honeypot.log` et elle affiche les connexions par heure, les adresses les plus actives, les identifiants et mots de passe les plus testés. Le fichier reste dans le navigateur. Un bouton charge des données d'exemple.
+
 ### Lien avec MITRE ATT&CK
 - T1110 Brute Force (identifiants testés)
 - T1046 Network Service Discovery (scans de ports)
 - T1078 Valid Accounts (identifiants volés réutilisés)
 
 ### Pistes d'amélioration
-- Résumé du journal (IP les plus actives, mots de passe les plus testés).
 - Autres faux services (HTTP, FTP, base de données).
 - Blocage ou alerte après N tentatives.
 
