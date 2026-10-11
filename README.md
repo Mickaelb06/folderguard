@@ -75,35 +75,42 @@ Ce type d'outil aide à détecter notamment :
 ## honeypot
 
 ### Principe
-Un honeypot est un leurre : un faux service que personne n'a de raison légitime d'utiliser. Toute connexion est donc suspecte. Celui-ci écoute sur un port, joue un faux service, note ce que le visiteur envoie puis ferme la connexion. **Il n'exécute jamais rien et ne donne accès à rien.**
+Un honeypot est un leurre : un faux service que personne n'a de raison légitime d'utiliser. Toute connexion est donc suspecte. Celui-ci écoute sur un port, note ce que le visiteur tente, **refuse toujours l'accès** puis ferme la connexion. Il n'ouvre jamais de terminal et n'exécute jamais rien.
 
 Deux services :
-- `telnet` : faux écran de connexion (identifiant puis mot de passe, toujours refusé, 3 essais). Le journal contient les identifiants testés.
-- `ssh` : fausse bannière OpenSSH. Le journal contient le logiciel annoncé par le client (utile pour repérer les outils de scan).
+- `ssh` : un **vrai serveur SSH** (bibliothèque [`russh`](https://crates.io/crates/russh)). Il parle le vrai protocole, donc les scanners et les clients ordinaires s'y connectent normalement. Le journal contient les **identifiants et mots de passe** essayés et l'**empreinte des clés publiques** proposées. Il s'annonce comme un OpenSSH sur Ubuntu.
+- `telnet` : un faux écran de connexion (identifiant puis mot de passe, toujours refusé, 3 essais), sans dépendance.
+
+C'est un honeypot « à faible interaction » : l'attaquant n'obtient jamais de terminal. Les outils comme Cowrie vont plus loin avec un faux système de fichiers, ce qui permet d'enregistrer les commandes tapées.
 
 ### Utilisation
 ```bash
 cargo build --release
-./target/release/honeypot [port] [telnet|ssh] [journal]
-# exemple : ./target/release/honeypot 2323 telnet honeypot.log
+./target/release/honeypot [port] [telnet|ssh] [journal] [clé_ssh]
+# exemples :
+./target/release/honeypot 2222 ssh                # SSH sur le port 2222
+./target/release/honeypot 2323 telnet honeypot.log
 ```
-Par défaut : port `2323`, service `telnet`, journal `honeypot.log`. Pour tester :
+Par défaut : port `2323`, service `telnet`, journal `honeypot.log`, clé du serveur `honeypot_host_key`.
+
+Pour tester le service `ssh` depuis une autre fenêtre :
 ```bash
-telnet 127.0.0.1 2323
+ssh -p 2222 admin@127.0.0.1     # tape un mot de passe : il sera refusé et noté
 ```
+La clé du serveur est créée au premier lancement (permissions `0600`) et gardée ensuite : une clé qui change à chaque démarrage trahirait le leurre. **Ne la publie jamais** (elle est exclue par le `.gitignore`).
 
 ### Journal
-Une ligne JSON par événement (`connexion`, `tentative` ou `donnees`, `fermeture`) :
+Une ligne JSON par événement (`connexion`, `tentative`, `cle_publique`, `fermeture`) :
 ```json
-{"ts":"2026-10-11T14:46:12Z","ip":"203.0.113.7","port":2323,"service":"telnet","evenement":"tentative","identifiant":"admin","mot_de_passe":"admin123"}
+{"ts":"2026-10-11T15:47:59Z","ip":"203.0.113.7","port":2222,"service":"ssh","evenement":"tentative","identifiant":"admin","mot_de_passe":"MotDePasse123"}
 ```
 Tout ce que le visiteur envoie est échappé : il ne peut pas casser le format du journal.
 
 ### Précautions
-- Ne l'expose pas sur Internet depuis ton réseau personnel sans isoler la machine (VM, conteneur ou VPS dédié). Il ne contient aucune faille connue, mais un programme exposé reste une surface d'attaque.
-- Les ports inférieurs à 1024 (23, 22) demandent des droits administrateur : garde un port élevé et redirige-le depuis le pare-feu si besoin.
+- Ne l'expose pas sur Internet depuis ton réseau personnel sans isoler la machine (VM, conteneur ou serveur dédié) : un programme exposé reste une surface d'attaque, et `russh` est une dépendance externe à garder à jour.
+- Ne l'installe jamais sur le port 22 d'une machine que tu administres par SSH. Les ports inférieurs à 1024 demandent des droits administrateur : garde un port élevé et redirige-le depuis le pare-feu.
 - Le journal contient des adresses IP : il est exclu de Git par le `.gitignore`.
-- Limites : 50 visiteurs simultanés, 20 secondes d'inactivité, 256 octets par ligne.
+- Limites : 50 visiteurs simultanés, 120 secondes par session, 30 secondes d'inactivité, 6 essais par connexion SSH.
 
 ### Tableau de bord
 La page [`docs/honeypot.html`](docs/honeypot.html) (en ligne : https://mickaelb06.github.io/folderguard/honeypot.html) lit le journal : on dépose `honeypot.log` et elle affiche les connexions par heure, les adresses les plus actives, les identifiants et mots de passe les plus testés. Le fichier reste dans le navigateur. Un bouton charge des données d'exemple.
@@ -114,6 +121,7 @@ La page [`docs/honeypot.html`](docs/honeypot.html) (en ligne : https://mickaelb0
 - T1078 Valid Accounts (identifiants volés réutilisés)
 
 ### Pistes d'amélioration
+- Faux terminal qui enregistre les commandes (comme Cowrie).
 - Autres faux services (HTTP, FTP, base de données).
 - Blocage ou alerte après N tentatives.
 

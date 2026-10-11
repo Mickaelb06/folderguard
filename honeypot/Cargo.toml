@@ -1,9 +1,11 @@
 [package]
-name = "honeypot"            # nom du programme : on lancera `honeypot 2323 telnet`
+name = "honeypot"            # nom du programme : on lancera `honeypot 2222 ssh`
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "Faux service réseau qui journalise les tentatives de connexion (aucune dépendance externe)"
+description = "Honeypot : faux telnet et vrai serveur SSH leurre qui journalisent les tentatives de connexion"
 
 [dependencies]
-# aucune : uniquement la bibliothèque standard de Rust
+rand = { version = "0.10", features = ["thread_rng"] }
+russh = "0.64.1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time"] }

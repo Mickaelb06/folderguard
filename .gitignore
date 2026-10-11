@@ -13,3 +13,6 @@ baseline*.txt
 # Journaux du honeypot : contiennent les adresses IP des visiteurs
 honeypot.log
 *.log
+
+# Clé privée du serveur SSH du honeypot : ne jamais la publier
+honeypot_host_key*

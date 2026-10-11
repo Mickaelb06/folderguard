@@ -1,13 +1,16 @@
 //! Honeypot : faux service réseau qui journalise les tentatives de connexion.
 //!
 //! Usage :
-//!   honeypot [port] [service] [journal]
+//!   honeypot [port] [service] [journal] [clé_ssh]
 //!     port     port d'écoute (défaut : 2323)
-//!     service  `telnet` (faux écran de connexion) ou `ssh` (fausse bannière) (défaut : telnet)
+//!     service  `telnet` (faux écran de connexion) ou `ssh` (vrai serveur SSH leurre) (défaut : telnet)
 //!     journal  fichier de journal, une ligne JSON par événement (défaut : honeypot.log)
+//!     clé_ssh  fichier de la clé du serveur SSH, créé au besoin (défaut : honeypot_host_key)
 //!
-//! Le honeypot ne donne JAMAIS accès à rien : il affiche un écran, note ce que le visiteur
-//! envoie, puis ferme la connexion. Aucune commande n'est exécutée.
+//! Le honeypot ne donne JAMAIS accès à rien : il note ce que le visiteur envoie ou tente,
+//! refuse toujours, puis ferme la connexion. Aucune commande n'est exécutée.
+
+mod ssh; // le vrai serveur SSH leurre
 
 use std::io::{BufRead, BufReader, Read, Write}; // lecture/écriture sur le réseau et les fichiers
 use std::fs::OpenOptions; // pour ouvrir le journal en mode "ajout"
@@ -139,20 +142,9 @@ fn faux_telnet(flux: &mut TcpStream, lecteur: &mut BufReader<TcpStream>, ip: &st
     }
 }
 
-/// Fausse bannière SSH : annonce un serveur, note les premiers octets reçus, puis ferme.
-fn faux_ssh(flux: &mut TcpStream, lecteur: &mut BufReader<TcpStream>, ip: &str, port: u16, journal: &Journal) {
-    let _ = flux.write_all(b"SSH-2.0-OpenSSH_8.9p1 Ubuntu-3ubuntu0.6\r\n");
-    let mut tampon = [0u8; 512];
-    if let Ok(n) = lecteur.read(&mut tampon) {
-        if n > 0 {
-            // le client SSH annonce généralement son logiciel dans la première ligne ("SSH-2.0-...")
-            journal.ecrire(ip, port, Service::Ssh, "donnees", &[("recu", &nettoyer(&tampon[..n]))]);
-        }
-    }
-}
-
 /// Traite un visiteur du début à la fin.
-fn gerer(flux: TcpStream, service: Service, port: u16, journal: &Journal) {
+fn gerer(flux: TcpStream, port: u16, journal: &Journal) {
+    let service = Service::Telnet;
     let ip = flux.peer_addr().map(|a| a.ip().to_string()).unwrap_or_else(|_| "inconnue".to_string());
     let _ = flux.set_read_timeout(Some(DELAI));
     let _ = flux.set_write_timeout(Some(DELAI));
@@ -161,10 +153,7 @@ fn gerer(flux: TcpStream, service: Service, port: u16, journal: &Journal) {
     let Ok(copie) = flux.try_clone() else { return }; // une copie pour lire, l'original pour écrire
     let mut lecteur = BufReader::new(copie);
     let mut flux = flux;
-    match service {
-        Service::Telnet => faux_telnet(&mut flux, &mut lecteur, &ip, port, journal),
-        Service::Ssh => faux_ssh(&mut flux, &mut lecteur, &ip, port, journal),
-    }
+    faux_telnet(&mut flux, &mut lecteur, &ip, port, journal);
     journal.ecrire(&ip, port, service, "fermeture", &[]);
 }
 
@@ -175,13 +164,13 @@ fn main() {
         "telnet" => Service::Telnet,
         "ssh" => Service::Ssh,
         _ => {
-            eprintln!("Usage : honeypot [port] [telnet|ssh] [journal]");
+            eprintln!("Usage : honeypot [port] [telnet|ssh] [journal] [clé_ssh]");
             process::exit(2);
         }
     };
     let chemin_journal = args.get(3).map(String::as_str).unwrap_or("honeypot.log");
     if port == 0 {
-        eprintln!("Erreur : port invalide. Usage : honeypot [port] [telnet|ssh] [journal]");
+        eprintln!("Erreur : port invalide. Usage : honeypot [port] [telnet|ssh] [journal] [clé_ssh]");
         process::exit(2);
     }
 
@@ -192,6 +181,20 @@ fn main() {
             process::exit(2);
         }
     };
+    let journal = Arc::new(Journal { fichier: Mutex::new(fichier) });
+    eprintln!("Honeypot {} à l'écoute sur le port {port}. Journal : {chemin_journal}. Ctrl+C pour arrêter.", service.nom());
+
+    if service == Service::Ssh {
+        // le serveur SSH est asynchrone (tokio) : il a sa propre boucle d'écoute
+        let chemin_cle = args.get(4).map(String::as_str).unwrap_or("honeypot_host_key");
+        let runtime = tokio::runtime::Runtime::new().expect("démarrage de tokio impossible");
+        if let Err(e) = runtime.block_on(ssh::lancer(port, journal, chemin_cle)) {
+            eprintln!("Erreur : {e}");
+            process::exit(2);
+        }
+        return;
+    }
+
     let ecoute = match TcpListener::bind(("0.0.0.0", port)) {
         Ok(l) => l,
         Err(e) => {
@@ -199,9 +202,6 @@ fn main() {
             process::exit(2);
         }
     };
-    eprintln!("Honeypot {} à l'écoute sur le port {port}. Journal : {chemin_journal}. Ctrl+C pour arrêter.", service.nom());
-
-    let journal = Arc::new(Journal { fichier: Mutex::new(fichier) });
     let actifs = Arc::new(AtomicUsize::new(0)); // nombre de visiteurs en cours
 
     for connexion in ecoute.incoming() {
@@ -212,7 +212,7 @@ fn main() {
         actifs.fetch_add(1, Ordering::SeqCst);
         let (journal, actifs) = (Arc::clone(&journal), Arc::clone(&actifs));
         thread::spawn(move || {
-            gerer(flux, service, port, &journal);
+            gerer(flux, port, &journal);
             actifs.fetch_sub(1, Ordering::SeqCst);
         });
     }

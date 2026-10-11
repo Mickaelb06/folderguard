@@ -320,7 +320,7 @@ footer { border-top: 1px solid var(--line); padding-block: 24px; color: var(--mu
     var recents = ev.slice().sort(function (a, b) { return b.t - a.t; }).slice(0, 40), corps = $('corps'); corps.replaceChildren();
     $('sous-table').textContent = recents.length + ' derniers événements sur ' + nf.format(ev.length) + '.';
     recents.forEach(function (e) {
-      var tr = el('tr'), detail = e.evenement === 'tentative' ? (e.identifiant || '(vide)') + ' / ' + (e.mot_de_passe || '(vide)') : (e.recu || '');
+      var tr = el('tr'), detail = e.evenement === 'tentative' ? (e.identifiant || '(vide)') + ' / ' + (e.mot_de_passe || '(vide)') : e.evenement === 'cle_publique' ? (e.identifiant || '(vide)') + ' : clé ' + (e.algorithme || '') + ' ' + (e.empreinte || '') : (e.recu || '');
       tr.append(el('td', null, dateCourte(e.t)), el('td', 'mono', e.ip), el('td', null, e.service || ''), el('td', null, e.evenement || ''), el('td', 'mono', detail));
       corps.append(tr);
     });
