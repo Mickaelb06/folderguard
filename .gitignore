@@ -1,0 +1,11 @@
+# Dossier de compilation Rust (gros, régénérable)
+target/
+
+# Fichiers de référence FIM générés en local : peuvent contenir des chemins de ta machine
+fim-baseline.txt
+baseline*.txt
+
+# Fichiers d'éditeur et de système
+.vscode/
+.idea/
+.DS_Store

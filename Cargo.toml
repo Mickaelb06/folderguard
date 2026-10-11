@@ -1,0 +1,5 @@
+# Workspace Cargo : un seul dépôt qui regroupe plusieurs outils (crates).
+# Chaque outil vit dans son propre dossier et se compile avec `cargo build --release`.
+[workspace]
+members = ["fim"]   # liste des crates ; on ajoutera "honeypot" à la prochaine étape
+resolver = "2"      # version moderne de la résolution des dépendances (recommandée)

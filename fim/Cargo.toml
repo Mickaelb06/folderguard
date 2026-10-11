@@ -1,0 +1,9 @@
+[package]
+name = "fim"                 # nom du programme : on lancera `fim init ...` / `fim check ...`
+version = "0.1.0"            # version de l'outil
+edition = "2021"             # édition du langage Rust utilisée
+license = "MIT"              # licence du projet (voir le fichier LICENSE à la racine)
+description = "File Integrity Monitor : détecte les fichiers modifiés, ajoutés ou supprimés"
+
+[dependencies]
+sha2 = "0.10"                # bibliothèque de hachage SHA-256 (la seule dépendance externe)

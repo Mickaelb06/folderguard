@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Dépose un dossier, garde sa photo, puis vérifie ce qui a été modifié, ajouté ou supprimé. Tout reste dans ton navigateur.">
+<title>FolderGuard</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Public+Sans:wght@400;600;700;800&display=swap">
+<style>
+/* Mise en page : site d'une page. Bandeau, présentation (à quoi ça sert), outil au centre, explications, questions. */
+:root {
+  --bg: #f1f5f8; --surface: #ffffff; --surface2: #e8eef3; --fg: #11202b; --muted: #54656f; --line: #cbd6dd;
+  --accent: #0a6a86; --accent-fg: #ffffff; --accent-soft: #d9eef5;
+  --ok: #1a7f45; --mod: #a85f00; --add: #0a6a86; --del: #bb3224; --warn: #6f4fbd;
+  --sans: "Public Sans", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1319; --surface: #121e26; --surface2: #182731; --fg: #e3edf2; --muted: #93a6b2; --line: #2c4350;
+    --accent: #4fc3e0; --accent-fg: #07222b; --accent-soft: #123340;
+    --ok: #4cc481; --mod: #f0a63c; --add: #4fc3e0; --del: #ff7a6b; --warn: #b79cf5;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1319; --surface: #121e26; --surface2: #182731; --fg: #e3edf2; --muted: #93a6b2; --line: #2c4350;
+  --accent: #4fc3e0; --accent-fg: #07222b; --accent-soft: #123340;
+  --ok: #4cc481; --mod: #f0a63c; --add: #4fc3e0; --del: #ff7a6b; --warn: #b79cf5;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { background: var(--bg); color: var(--fg); font: 16px/1.6 var(--sans); margin: 0; }
+.wrap { max-width: 1000px; margin-inline: auto; padding-inline: 16px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.2rem, 7vw, 3.6rem); line-height: 1.04; font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: clamp(1.5rem, 4vw, 2rem); line-height: 1.15; font-weight: 800; letter-spacing: -0.01em; }
+h3 { font-size: 1.1rem; margin-bottom: 6px; }
+p { margin: 0 0 12px; max-width: 62ch; }
+.muted { color: var(--muted); }
+.eyebrow { font: 600 .78rem var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+
+/* bandeau */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--bg) 92%, transparent); border-bottom: 1px solid var(--line); backdrop-filter: blur(8px); }
+.top .wrap { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-block: 12px; }
+.logo { font-weight: 800; display: flex; align-items: center; gap: 10px; }
+.logo svg { width: 26px; height: 26px; flex: none; }
+.top nav { display: flex; gap: 18px; font-size: .92rem; }
+.top nav a { color: var(--muted); text-decoration: none; }
+.top nav a:hover { color: var(--fg); }
+@media (max-width: 560px) { .top nav a:not(.cta) { display: none; } }
+
+/* boutons */
+.btn, button { font: 700 .98rem var(--sans); border-radius: 10px; padding: 11px 18px; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--fg); text-decoration: none; display: inline-block; }
+.btn.main, button.main { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:disabled { opacity: .5; cursor: default; }
+
+/* présentation */
+.hero { padding-block: 56px 48px; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 40px; align-items: center; }
+.hero p.lead { font-size: 1.15rem; color: var(--muted); margin-top: 18px; }
+.hero .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.demo { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.demo .cap { font: 600 .72rem var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; display: flex; justify-content: space-between; gap: 8px; }
+.demo .big { font-weight: 800; font-size: 1.25rem; color: var(--del); margin-bottom: 8px; }
+@media (max-width: 800px) { .hero { grid-template-columns: 1fr; padding-block: 36px 32px; gap: 28px; } }
+
+section.block { padding-block: 56px; border-top: 1px solid var(--line); }
+section.block > .wrap > header { margin-bottom: 28px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+.card p { margin: 0; color: var(--muted); }
+.card .ico { width: 40px; height: 40px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin-bottom: 14px; }
+.card .ico svg { width: 22px; height: 22px; }
+
+/* étapes : une vraie suite d'actions, donc numérotées */
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; padding: 0; margin: 0; list-style: none; counter-reset: s; }
+.steps li { counter-increment: s; background: var(--surface2); border-radius: 14px; padding: 20px; }
+.steps li::before { content: counter(s); display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); font-weight: 800; margin-bottom: 12px; }
+.steps p { margin: 0; color: var(--muted); }
+
+/* outil */
+#outil { background: var(--surface2); }
+.tool { display: flex; flex-direction: column; gap: 16px; }
+.drop { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 48px 20px; border: 2px dashed var(--accent); border-radius: 16px; background: var(--surface); cursor: pointer; }
+.drop .up { width: 44px; height: 44px; color: var(--accent); }
+.drop.over { background: var(--accent-soft); }
+.drop strong { font-size: 1.25rem; }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.drop:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+.panel h3 { margin-bottom: 8px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin-top: 10px; }
+.bar > div { height: 100%; width: 0; background: var(--accent); transition: width .1s; }
+.verdict { font-size: 1.5rem; font-weight: 800; margin: 0 0 10px; }
+.verdict.ok { color: var(--ok); } .verdict.bad { color: var(--del); }
+ul.list { list-style: none; margin: 12px 0 16px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+ul.list li { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: 12px; align-items: baseline; padding: 8px 12px; background: var(--bg); border-radius: 8px; }
+.tag { font: 600 .74rem var(--mono); letter-spacing: .05em; text-transform: uppercase; }
+.path { font-family: var(--mono); font-size: .88rem; overflow-wrap: anywhere; }
+.t-mod { color: var(--mod); } .t-add { color: var(--add); } .t-del { color: var(--del); } .t-ill { color: var(--warn); }
+textarea { width: 100%; min-height: 90px; font: .8rem var(--mono); background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+details { border-bottom: 1px solid var(--line); padding: 14px 0; }
+details:last-of-type { border-bottom: 0; }
+summary { cursor: pointer; font-weight: 700; }
+details p { margin: 10px 0 0; color: var(--muted); }
+.panel details { border: 0; padding: 12px 0 0; }
+[hidden] { display: none !important; }
+footer { border-top: 1px solid var(--line); padding-block: 28px; color: var(--muted); font-size: .9rem; }
+@media (max-width: 480px) { ul.list li { grid-template-columns: 1fr; gap: 0; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="logo" href="#haut" style="color:inherit;text-decoration:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6z"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8"/></svg>
+      FolderGuard
+    </a>
+    <nav>
+      <a href="#utilite">À quoi ça sert</a>
+      <a href="#methode">Comment ça marche</a>
+      <a href="#questions">Questions</a>
+      <a class="btn main cta" href="#outil" style="padding:7px 14px;color:var(--accent-fg)">Essayer</a>
+    </nav>
+  </div>
+</header>
+
+<main id="haut">
+  <div class="wrap hero">
+    <div>
+      <div class="eyebrow">Intégrité des fichiers</div>
+      <h1>Vérifie que personne n'a touché à tes fichiers.</h1>
+      <p class="lead">Dépose un dossier, garde-en une photo, puis revérifie quand tu veux. Le site te montre en clair ce qui a été modifié, ajouté ou supprimé. Tes fichiers restent sur ton ordinateur.</p>
+      <div class="actions">
+        <a class="btn main" href="#outil">Contrôler un dossier</a>
+        <a class="btn" href="#utilite">À quoi ça sert ?</a>
+      </div>
+    </div>
+    <div class="demo" aria-label="Exemple de résultat">
+      <div class="cap"><span>Exemple de résultat</span><span>3 différences</span></div>
+      <div class="big">3 différences trouvées</div>
+      <ul class="list" style="margin:0">
+        <li><span class="tag t-mod">Modifié</span><span class="path">contrat.pdf</span></li>
+        <li><span class="tag t-add">Ajouté</span><span class="path">outils/inconnu.exe</span></li>
+        <li><span class="tag t-del">Supprimé</span><span class="path">notes.txt</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <section class="block" id="utilite">
+    <div class="wrap">
+      <header>
+        <div class="eyebrow">À quoi ça sert</div>
+        <h2>Repérer ce qui n'aurait pas dû bouger</h2>
+        <p class="muted" style="margin-top:12px">Chaque fichier a une empreinte unique, calculée à partir de son contenu. Si un seul caractère change, l'empreinte change. Comparer les empreintes avant et après suffit donc à savoir qu'un fichier a été touché.</p>
+      </header>
+      <div class="cards">
+        <article class="card">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6z"/><path d="M12 9v4M12 16h.01"/></svg></div>
+          <h3>Détecter une intrusion</h3>
+          <p>Un virus ou un pirate modifie des programmes, ajoute un fichier ou efface des traces. Un dossier système ou un serveur qui change sans raison est un signal d'alerte.</p>
+        </article>
+        <article class="card">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></svg></div>
+          <h3>Protéger un site ou un projet</h3>
+          <p>Après une mise en ligne, vérifie qu'aucun fichier n'a été remplacé en douce. Utile aussi pour un dossier de code partagé.</p>
+        </article>
+        <article class="card">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 15l2 2 4-4"/></svg></div>
+          <h3>Garder une preuve</h3>
+          <p>Documents importants, copies de sauvegarde, pièces d'un dossier : prouve qu'ils sont identiques à ce qu'ils étaient à une date donnée.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="methode">
+    <div class="wrap">
+      <header>
+        <div class="eyebrow">Comment ça marche</div>
+        <h2>Trois gestes</h2>
+      </header>
+      <ol class="steps">
+        <li><h3>Dépose le dossier sain</h3><p>Le site calcule l'empreinte de chaque fichier. Rien n'est envoyé : tout se passe dans ton navigateur.</p></li>
+        <li><h3>Enregistre la photo</h3><p>La liste des empreintes est gardée dans ton navigateur. Tu peux aussi la copier dans un fichier pour la mettre à l'abri.</p></li>
+        <li><h3>Redépose plus tard</h3><p>Le site compare avec la photo et liste chaque fichier modifié, ajouté ou supprimé.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="block" id="outil">
+    <div class="wrap tool">
+      <header>
+        <div class="eyebrow">L'outil</div>
+        <h2>Contrôle ton dossier</h2>
+      </header>
+
+      <label class="drop" id="zone">
+        <svg class="up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M12 16v-5M9.5 13.5L12 11l2.5 2.5"/></svg>
+        <strong>Dépose ton dossier ici</strong>
+        <span class="muted">ou clique pour le choisir</span>
+        <input type="file" id="choix" webkitdirectory multiple>
+      </label>
+
+      <div class="panel" id="progres" hidden>
+        <div id="progres-texte">Lecture des fichiers…</div>
+        <div class="bar"><div id="progres-barre"></div></div>
+      </div>
+
+      <div class="panel" id="resultat" hidden></div>
+
+      <div class="panel" id="photo">
+        <h3>Photo enregistrée</h3>
+        <p id="photo-info" class="muted"></p>
+        <div class="row"><button type="button" id="effacer" hidden>Effacer la photo</button></div>
+        <details>
+          <summary>Copier ou restaurer la photo (avancé)</summary>
+          <p>Le navigateur garde la photo pour toi seul. Pour la mettre à l'abri, copie ce texte dans un fichier. Pour la remettre, colle-le ci-dessous.</p>
+          <textarea id="export" aria-label="Texte de la photo"></textarea>
+          <div class="row" style="margin-top:8px">
+            <button type="button" id="restaurer">Utiliser ce texte comme photo</button>
+            <span id="restaurer-msg" class="muted"></span>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="questions">
+    <div class="wrap">
+      <header>
+        <div class="eyebrow">Questions</div>
+        <h2>Bon à savoir</h2>
+      </header>
+      <details><summary>Mes fichiers sont-ils envoyés quelque part ?</summary><p>Non. Le calcul se fait dans ton navigateur. Le site ne reçoit rien.</p></details>
+      <details><summary>Que faire si j'ai modifié un fichier exprès ?</summary><p>Clique sur « Remplacer la photo par cet état » : la nouvelle version devient la référence.</p></details>
+      <details><summary>La photo peut-elle être falsifiée ?</summary><p>Oui, si quelqu'un a accès à ton navigateur ou au fichier où tu l'as copiée. Garde-la dans un endroit que toi seul peux modifier.</p></details>
+      <details><summary>Le site surveille-t-il en continu ?</summary><p>Non. Il contrôle au moment où tu déposes le dossier. Pour une surveillance automatique, il existe l'outil en ligne de commande « fim » du même projet.</p></details>
+      <details><summary>Que vérifie-t-il exactement ?</summary><p>Le contenu de chaque fichier (empreinte SHA-256) et sa présence. Il ne vérifie ni les droits d'accès ni la date de modification.</p></details>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">FolderGuard. Projet d'apprentissage en sécurité défensive, inspiré d'un moniteur d'intégrité de fichiers (FIM).</div>
+</footer>
+
+<script>
+(function () {
+  var CLE = 'fim-photo';
+  var $ = function (id) { return document.getElementById(id); };
+  var fichiersLus = null; // { nom, fichiers: {chemin: hash}, illisibles: [chemins] }
+
+  // ---------- Stockage (le navigateur peut le refuser : tout est protégé) ----------
+  function lirePhoto() { try { return JSON.parse(localStorage.getItem(CLE)); } catch (e) { return memoire; } }
+  var memoire = null; // repli si le stockage est bloqué : la photo tient jusqu'à la fermeture de la page
+  function ecrirePhoto(p) { memoire = p; try { if (p) localStorage.setItem(CLE, JSON.stringify(p)); else localStorage.removeItem(CLE); } catch (e) {} }
+
+  function afficherPhoto() {
+    var p = lirePhoto();
+    if (p && p.fichiers) {
+      var n = Object.keys(p.fichiers).length;
+      $('photo-info').textContent = 'Dossier « ' + p.nom + ' », ' + n + ' fichier(s), prise le ' + new Date(p.date).toLocaleString('fr-FR') + '.';
+      $('effacer').hidden = false;
+      $('export').value = JSON.stringify(p);
+    } else {
+      $('photo-info').textContent = 'Aucune pour l’instant. Dépose un dossier pour en créer une.';
+      $('effacer').hidden = true;
+      $('export').value = '';
+    }
+  }
+
+  // ---------- Lecture du dossier déposé ----------
+  function lireEntrees(lecteur) {
+    return new Promise(function (ok, ko) {
+      var tout = [];
+      (function suite() {
+        lecteur.readEntries(function (lot) {
+          if (!lot.length) return ok(tout);
+          tout = tout.concat(Array.prototype.slice.call(lot));
+          suite();
+        }, ko);
+      })();
+    });
+  }
+  function versFichier(entree) { return new Promise(function (ok, ko) { entree.file(ok, ko); }); }
+
+  // Renvoie une liste de { chemin, fichier } (chemin relatif au dossier déposé).
+  async function parcourirEntree(entree, prefixe, sortie) {
+    if (entree.isFile) {
+      sortie.push({ chemin: prefixe + entree.name, lire: function () { return versFichier(entree); } });
+    } else if (entree.isDirectory) {
+      var enfants = await lireEntrees(entree.createReader());
+      for (var i = 0; i < enfants.length; i++) {
+        await parcourirEntree(enfants[i], prefixe + entree.name + '/', sortie);
+      }
+    }
+  }
+
+  async function empreinte(fichier) {
+    var tampon = await fichier.arrayBuffer();
+    var h = new Uint8Array(await crypto.subtle.digest('SHA-256', tampon));
+    var s = '';
+    for (var i = 0; i < h.length; i++) s += h[i].toString(16).padStart(2, '0');
+    return s;
+  }
+
+  async function hasherTout(liste, nom) {
+    var res = { nom: nom, fichiers: {}, illisibles: [] };
+    var fait = 0, total = liste.length, suivant = 0;
+    $('progres').hidden = false; $('resultat').hidden = true;
+    function maj() {
+      $('progres-texte').textContent = 'Lecture des fichiers : ' + fait + ' sur ' + total;
+      $('progres-barre').style.width = (total ? (fait / total * 100) : 100) + '%';
+    }
+    maj();
+    async function ouvrier() {
+      while (suivant < total) {
+        var el = liste[suivant++];
+        try { res.fichiers[el.chemin] = await empreinte(await el.lire()); }
+        catch (e) { res.illisibles.push(el.chemin); }
+        fait++; if (fait % 5 === 0 || fait === total) maj();
+      }
+    }
+    await Promise.all([ouvrier(), ouvrier(), ouvrier(), ouvrier()]);
+    $('progres').hidden = true;
+    return res;
+  }
+
+  async function traiter(liste, nom) {
+    if (!(window.crypto && crypto.subtle)) { montrerErreur('Ce navigateur ne sait pas calculer les empreintes. Essaie avec Chrome, Firefox ou Safari récents.'); return; }
+    if (!liste.length) { montrerErreur('Ce dossier est vide.'); return; }
+    fichiersLus = await hasherTout(liste, nom);
+    montrerResultat();
+  }
+
+  // ---------- Comparaison ----------
+  function comparer(ancien, nouveau, illisibles) {
+    var mod = [], ajo = [], sup = [], ill = [];
+    Object.keys(nouveau).sort().forEach(function (c) {
+      if (!(c in ancien)) ajo.push(c); else if (ancien[c] !== nouveau[c]) mod.push(c);
+    });
+    Object.keys(ancien).sort().forEach(function (c) {
+      if (c in nouveau) return;
+      if (illisibles.indexOf(c) >= 0) ill.push(c); else sup.push(c);
+    });
+    return { mod: mod, ajo: ajo, sup: sup, ill: ill };
+  }
+
+  // ---------- Affichage ----------
+  function el(tag, classe, texte) { var e = document.createElement(tag); if (classe) e.className = classe; if (texte != null) e.textContent = texte; return e; }
+  function montrerErreur(msg) { var r = $('resultat'); r.hidden = false; r.replaceChildren(el('p', 'verdict bad', msg)); }
+
+  function enregistrerPhoto() {
+    ecrirePhoto({ nom: fichiersLus.nom, date: Date.now(), fichiers: fichiersLus.fichiers });
+    afficherPhoto(); montrerResultat();
+  }
+
+  function montrerResultat() {
+    var r = $('resultat'), p = lirePhoto(), n = Object.keys(fichiersLus.fichiers).length;
+    r.hidden = false; r.replaceChildren();
+    try { r.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
+    if (!p || !p.fichiers) {
+      r.append(el('h3', null, 'Dossier « ' + fichiersLus.nom + ' » lu'));
+      r.append(el('p', null, n + ' fichier(s) trouvé(s). Pas encore de photo : enregistre-la maintenant, tant que le dossier est sain.'));
+      var b = el('button', 'main', 'Enregistrer cette photo'); b.type = 'button'; b.onclick = enregistrerPhoto;
+      r.append(b); return;
+    }
+    var d = comparer(p.fichiers, fichiersLus.fichiers, fichiersLus.illisibles);
+    var nb = d.mod.length + d.ajo.length + d.sup.length + d.ill.length + fichiersLus.illisibles.length;
+    if (nb === 0) {
+      r.append(el('p', 'verdict ok', 'Rien n’a changé'));
+      r.append(el('p', 'muted', n + ' fichier(s) vérifié(s) par rapport à la photo du ' + new Date(p.date).toLocaleString('fr-FR') + '.'));
+    } else {
+      r.append(el('p', 'verdict bad', nb + ' différence(s) trouvée(s)'));
+      var ul = el('ul', 'list');
+      var ajouter = function (liste, classe, etiquette) {
+        liste.forEach(function (c) { var li = el('li'); li.append(el('span', 'tag ' + classe, etiquette), el('span', 'path', c)); ul.append(li); });
+      };
+      ajouter(d.mod, 't-mod', 'Modifié'); ajouter(d.ajo, 't-add', 'Ajouté'); ajouter(d.sup, 't-del', 'Supprimé');
+      ajouter(d.ill, 't-ill', 'Illisible');
+      var nouveauxIll = fichiersLus.illisibles.filter(function (c) { return !(c in p.fichiers); });
+      ajouter(nouveauxIll, 't-ill', 'Illisible');
+      r.append(ul);
+    }
+    var b2 = el('button', null, 'Remplacer la photo par cet état'); b2.type = 'button'; b2.onclick = enregistrerPhoto;
+    r.append(b2);
+  }
+
+  // ---------- Événements ----------
+  $('choix').addEventListener('change', function (e) {
+    var fichiers = Array.prototype.slice.call(e.target.files);
+    if (!fichiers.length) return;
+    var nom = fichiers[0].webkitRelativePath.split('/')[0] || 'dossier';
+    var liste = fichiers.map(function (f) {
+      var parts = f.webkitRelativePath.split('/'); parts.shift();
+      return { chemin: parts.join('/') || f.name, lire: function () { return Promise.resolve(f); } };
+    });
+    traiter(liste, nom);
+    e.target.value = '';
+  });
+
+  var zone = $('zone');
+  ['dragenter', 'dragover'].forEach(function (t) { zone.addEventListener(t, function (e) { e.preventDefault(); zone.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function (t) { zone.addEventListener(t, function (e) { e.preventDefault(); zone.classList.remove('over'); }); });
+  zone.addEventListener('drop', function (e) {
+    // les entrées doivent être récupérées tout de suite, avant toute pause
+    var items = Array.prototype.slice.call(e.dataTransfer.items || []);
+    var entrees = items.map(function (it) { return it.webkitGetAsEntry && it.webkitGetAsEntry(); }).filter(Boolean);
+    var dossier = entrees.filter(function (x) { return x.isDirectory; })[0];
+    if (!dossier) { montrerErreur('Dépose un dossier, pas un fichier seul.'); return; }
+    (async function () {
+      var liste = [];
+      var enfants = await lireEntrees(dossier.createReader());
+      for (var i = 0; i < enfants.length; i++) await parcourirEntree(enfants[i], '', liste);
+      traiter(liste, dossier.name);
+    })().catch(function () { montrerErreur('Impossible de lire ce dossier.'); });
+  });
+
+  $('effacer').addEventListener('click', function () { ecrirePhoto(null); afficherPhoto(); if (fichiersLus) montrerResultat(); });
+  $('restaurer').addEventListener('click', function () {
+    try {
+      var p = JSON.parse($('export').value);
+      if (!p || typeof p.fichiers !== 'object' || !p.nom) throw 0;
+      ecrirePhoto(p); afficherPhoto(); $('restaurer-msg').textContent = 'Photo restaurée.';
+      if (fichiersLus) montrerResultat();
+    } catch (e) { $('restaurer-msg').textContent = 'Ce texte n’est pas une photo valide.'; }
+  });
+
+  afficherPhoto();
+})();
+</script>
+
+</body>
+</html>
