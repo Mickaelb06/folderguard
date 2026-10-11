@@ -108,6 +108,14 @@ details:last-of-type { border-bottom: 0; }
 summary { cursor: pointer; font-weight: 700; }
 details p { margin: 10px 0 0; color: var(--muted); }
 .panel details { border: 0; padding: 12px 0 0; }
+.t-ok { color: var(--ok); font-weight: 600; }
+input[type=text], select { font: .95rem var(--sans); background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 100%; }
+.sceau { font: 700 1.3rem var(--mono); letter-spacing: .04em; background: var(--bg); border-radius: 8px; padding: 6px 12px; }
+.hashval { font: .9rem/1.5 var(--mono); background: var(--bg); border-radius: 8px; padding: 12px; overflow-wrap: anywhere; margin: 8px 0; }
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.field label, .lbl { font-weight: 700; font-size: .92rem; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 12px; }
+@media (max-width: 560px) { .two { grid-template-columns: 1fr; } }
 [hidden] { display: none !important; }
 footer { border-top: 1px solid var(--line); padding-block: 28px; color: var(--muted); font-size: .9rem; }
 @media (max-width: 480px) { ul.list li { grid-template-columns: 1fr; gap: 0; } }
@@ -124,6 +132,7 @@ footer { border-top: 1px solid var(--line); padding-block: 28px; color: var(--mu
     <nav>
       <a href="#utilite">À quoi ça sert</a>
       <a href="#methode">Comment ça marche</a>
+      <a href="#empreinte">Empreinte</a>
       <a href="#questions">Questions</a>
       <a class="btn main cta" href="#outil" style="padding:7px 14px;color:var(--accent-fg)">Essayer</a>
     </nav>
@@ -187,7 +196,7 @@ footer { border-top: 1px solid var(--line); padding-block: 28px; color: var(--mu
       </header>
       <ol class="steps">
         <li><h3>Dépose le dossier sain</h3><p>Le site calcule l'empreinte de chaque fichier. Rien n'est envoyé : tout se passe dans ton navigateur.</p></li>
-        <li><h3>Enregistre la photo</h3><p>La liste des empreintes est gardée dans ton navigateur. Tu peux aussi la copier dans un fichier pour la mettre à l'abri.</p></li>
+        <li><h3>Enregistre la photo</h3><p>La liste des empreintes est gardée dans ton navigateur, avec un sceau : un petit code à noter qui permet de vérifier plus tard que la photo n'a pas été modifiée.</p></li>
         <li><h3>Redépose plus tard</h3><p>Le site compare avec la photo et liste chaque fichier modifié, ajouté ou supprimé.</p></li>
       </ol>
     </div>
@@ -217,6 +226,22 @@ footer { border-top: 1px solid var(--line); padding-block: 28px; color: var(--mu
       <div class="panel" id="photo">
         <h3>Photo enregistrée</h3>
         <p id="photo-info" class="muted"></p>
+        <div id="sceau-bloc" hidden>
+          <div class="lbl">Sceau de la photo</div>
+          <div class="row" style="margin:6px 0 4px">
+            <span class="sceau" id="sceau-code" aria-label="Sceau de la photo"></span>
+            <button type="button" id="sceau-copier">Copier</button>
+          </div>
+          <p id="sceau-etat" class="muted" style="margin-bottom:12px"></p>
+          <div class="field">
+            <label for="sceau-saisie">Vérifier un sceau que j'ai noté</label>
+            <div class="row">
+              <input type="text" id="sceau-saisie" placeholder="a1b2-c3d4-e5f6-7890" autocomplete="off" style="flex:1 1 220px;width:auto">
+              <button type="button" id="sceau-verifier">Vérifier</button>
+            </div>
+            <span id="sceau-msg" class="muted"></span>
+          </div>
+        </div>
         <div class="row"><button type="button" id="effacer" hidden>Effacer la photo</button></div>
         <details>
           <summary>Copier ou restaurer la photo (avancé)</summary>
@@ -231,6 +256,47 @@ footer { border-top: 1px solid var(--line); padding-block: 28px; color: var(--mu
     </div>
   </section>
 
+  <section class="block" id="empreinte">
+    <div class="wrap tool">
+      <header>
+        <div class="eyebrow">Deuxième outil</div>
+        <h2>Empreinte d'un fichier ou d'un texte</h2>
+        <p class="muted" style="margin-top:12px">Utile pour vérifier un téléchargement : compare l'empreinte calculée ici avec celle publiée par le site d'où vient le fichier. Si elles sont identiques, le fichier n'a pas été altéré.</p>
+      </header>
+      <div class="panel">
+        <div class="two">
+          <div class="field">
+            <label for="h-fichier">Un fichier</label>
+            <input type="file" id="h-fichier">
+          </div>
+          <div class="field">
+            <label for="h-algo">Algorithme</label>
+            <select id="h-algo">
+              <option value="SHA-256" selected>SHA-256</option>
+              <option value="SHA-512">SHA-512</option>
+              <option value="SHA-1">SHA-1 (ancien)</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="h-texte">ou un texte</label>
+          <textarea id="h-texte" placeholder="Tape ou colle un texte"></textarea>
+        </div>
+        <div id="h-resultat" hidden>
+          <div class="lbl">Empreinte</div>
+          <p class="muted" id="h-source" style="margin:2px 0 0"></p>
+          <div class="hashval" id="h-valeur"></div>
+          <button type="button" id="h-copier">Copier</button>
+          <div class="field" style="margin-top:16px">
+            <label for="h-attendu">Comparer avec une empreinte attendue</label>
+            <input type="text" id="h-attendu" placeholder="Colle ici l'empreinte donnée par le site" autocomplete="off">
+            <span id="h-verdict"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="block" id="questions">
     <div class="wrap">
       <header>
@@ -239,7 +305,7 @@ footer { border-top: 1px solid var(--line); padding-block: 28px; color: var(--mu
       </header>
       <details><summary>Mes fichiers sont-ils envoyés quelque part ?</summary><p>Non. Le calcul se fait dans ton navigateur. Le site ne reçoit rien.</p></details>
       <details><summary>Que faire si j'ai modifié un fichier exprès ?</summary><p>Clique sur « Remplacer la photo par cet état » : la nouvelle version devient la référence.</p></details>
-      <details><summary>La photo peut-elle être falsifiée ?</summary><p>Oui, si quelqu'un a accès à ton navigateur ou au fichier où tu l'as copiée. Garde-la dans un endroit que toi seul peux modifier.</p></details>
+      <details><summary>La photo peut-elle être falsifiée ?</summary><p>Quelqu'un qui a accès à ton navigateur pourrait la changer. C'est pour cela que le site calcule un sceau : note-le ailleurs (papier, messagerie). Plus tard, tape-le dans « Vérifier un sceau que j'ai noté » : si la photo a été modifiée, il ne correspondra plus.</p></details>
       <details><summary>Le site surveille-t-il en continu ?</summary><p>Non. Il contrôle au moment où tu déposes le dossier. Pour une surveillance automatique, il existe l'outil en ligne de commande « fim » du même projet.</p></details>
       <details><summary>Que vérifie-t-il exactement ?</summary><p>Le contenu de chaque fichier (empreinte SHA-256) et sa présence. Il ne vérifie ni les droits d'accès ni la date de modification.</p></details>
     </div>
@@ -255,25 +321,55 @@ footer { border-top: 1px solid var(--line); padding-block: 28px; color: var(--mu
   var CLE = 'fim-photo';
   var $ = function (id) { return document.getElementById(id); };
   var fichiersLus = null; // { nom, fichiers: {chemin: hash}, illisibles: [chemins] }
+  var memoire = null; // repli si le stockage est bloqué : la photo tient jusqu'à la fermeture de la page
+  var stockageBloque = false; // devient vrai si le navigateur refuse de garder la photo
+
+  // ---------- Hash (SHA-256 par défaut) ----------
+  function enHex(octets) {
+    var s = '';
+    for (var i = 0; i < octets.length; i++) s += octets[i].toString(16).padStart(2, '0');
+    return s;
+  }
+  async function hacher(algo, donnees) { return enHex(new Uint8Array(await crypto.subtle.digest(algo, donnees))); }
+  async function empreinte(fichier) { return hacher('SHA-256', await fichier.arrayBuffer()); }
+  function hacherTexte(texte) { return hacher('SHA-256', new TextEncoder().encode(texte)); }
+
+  // ---------- Sceau : empreinte de la photo elle-même ----------
+  // Le texte "canonique" est toujours écrit dans le même ordre, donc le même sceau pour la même photo.
+  function canonique(p) {
+    var lignes = Object.keys(p.fichiers).sort().map(function (c) { return p.fichiers[c] + '  ' + c; });
+    return p.nom + '\n' + p.date + '\n' + lignes.join('\n');
+  }
+  async function creerPhoto(nom, fichiers) {
+    var p = { nom: nom, date: Date.now(), fichiers: fichiers };
+    p.sceau = await hacherTexte(canonique(p));
+    return p;
+  }
+  async function sceauValide(p) { return !!p.sceau && p.sceau === await hacherTexte(canonique(p)); }
+  function codeCourt(sceau) { return sceau.slice(0, 16).replace(/(.{4})(?=.)/g, '$1-'); } // ex. a1b2-c3d4-e5f6-7890
 
   // ---------- Stockage (le navigateur peut le refuser : tout est protégé) ----------
   function lirePhoto() { try { return JSON.parse(localStorage.getItem(CLE)); } catch (e) { return memoire; } }
-  var memoire = null; // repli si le stockage est bloqué : la photo tient jusqu'à la fermeture de la page
-  var stockageBloque = false; // devient vrai si le navigateur refuse de garder la photo
   function ecrirePhoto(p) {
     memoire = p;
     try { if (p) localStorage.setItem(CLE, JSON.stringify(p)); else localStorage.removeItem(CLE); stockageBloque = false; }
     catch (e) { stockageBloque = true; }
   }
 
-  function afficherPhoto() {
+  async function afficherPhoto() {
     var p = lirePhoto();
+    $('sceau-bloc').hidden = !(p && p.fichiers);
     if (p && p.fichiers) {
       var n = Object.keys(p.fichiers).length;
       $('photo-info').textContent = 'Dossier « ' + p.nom + ' », ' + n + ' fichier(s), prise le ' + new Date(p.date).toLocaleString('fr-FR') + '.';
       if (stockageBloque) $('photo-info').textContent += ' Attention : ton navigateur refuse de la garder après la fermeture de la page. Ouvre « Copier ou restaurer la photo » ci-dessous et copie le texte dans un fichier.';
       $('effacer').hidden = false;
       $('export').value = JSON.stringify(p);
+      $('sceau-code').textContent = p.sceau ? codeCourt(p.sceau) : 'aucun';
+      var etat = $('sceau-etat'); etat.className = '';
+      if (!p.sceau) { etat.textContent = 'Cette photo date d’avant les sceaux. Refais-la pour en avoir un.'; }
+      else if (await sceauValide(p)) { etat.className = 't-ok'; etat.textContent = 'Le contenu de la photo correspond à son sceau.'; }
+      else { etat.className = 't-del'; etat.textContent = 'ATTENTION : la photo ne correspond plus à son sceau. Elle a été modifiée.'; }
     } else {
       $('photo-info').textContent = 'Aucune pour l’instant. Dépose un dossier pour en créer une.';
       $('effacer').hidden = true;
@@ -296,7 +392,6 @@ footer { border-top: 1px solid var(--line); padding-block: 28px; color: var(--mu
   }
   function versFichier(entree) { return new Promise(function (ok, ko) { entree.file(ok, ko); }); }
 
-  // Renvoie une liste de { chemin, fichier } (chemin relatif au dossier déposé).
   async function parcourirEntree(entree, prefixe, sortie) {
     if (entree.isFile) {
       sortie.push({ chemin: prefixe + entree.name, lire: function () { return versFichier(entree); } });
@@ -306,14 +401,6 @@ footer { border-top: 1px solid var(--line); padding-block: 28px; color: var(--mu
         await parcourirEntree(enfants[i], prefixe + entree.name + '/', sortie);
       }
     }
-  }
-
-  async function empreinte(fichier) {
-    var tampon = await fichier.arrayBuffer();
-    var h = new Uint8Array(await crypto.subtle.digest('SHA-256', tampon));
-    var s = '';
-    for (var i = 0; i < h.length; i++) s += h[i].toString(16).padStart(2, '0');
-    return s;
   }
 
   async function hasherTout(liste, nom) {
@@ -342,7 +429,7 @@ footer { border-top: 1px solid var(--line); padding-block: 28px; color: var(--mu
     if (!(window.crypto && crypto.subtle)) { montrerErreur('Ce navigateur ne sait pas calculer les empreintes. Essaie avec Chrome, Firefox ou Safari récents.'); return; }
     if (!liste.length) { montrerErreur('Ce dossier est vide.'); return; }
     fichiersLus = await hasherTout(liste, nom);
-    montrerResultat();
+    await montrerResultat();
   }
 
   // ---------- Comparaison ----------
@@ -362,24 +449,27 @@ footer { border-top: 1px solid var(--line); padding-block: 28px; color: var(--mu
   function el(tag, classe, texte) { var e = document.createElement(tag); if (classe) e.className = classe; if (texte != null) e.textContent = texte; return e; }
   function montrerErreur(msg) { var r = $('resultat'); r.hidden = false; r.replaceChildren(el('p', 'verdict bad', msg)); }
 
-  function enregistrerPhoto() {
-    ecrirePhoto({ nom: fichiersLus.nom, date: Date.now(), fichiers: fichiersLus.fichiers });
-    afficherPhoto(); montrerResultat();
+  async function enregistrerPhoto() {
+    ecrirePhoto(await creerPhoto(fichiersLus.nom, fichiersLus.fichiers));
+    await afficherPhoto(); await montrerResultat();
   }
 
-  function montrerResultat() {
+  async function montrerResultat() {
     var r = $('resultat'), p = lirePhoto(), n = Object.keys(fichiersLus.fichiers).length;
     r.hidden = false; r.replaceChildren();
     try { r.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
     if (!p || !p.fichiers) {
-      ecrirePhoto({ nom: fichiersLus.nom, date: Date.now(), fichiers: fichiersLus.fichiers });
-      afficherPhoto();
+      ecrirePhoto(await creerPhoto(fichiersLus.nom, fichiersLus.fichiers));
+      await afficherPhoto();
       r.append(el('p', 'verdict ok', 'Première photo enregistrée'));
-      r.append(el('p', null, n + ' fichier(s) du dossier « ' + fichiersLus.nom + ' » ont été mémorisés. Redépose le même dossier plus tard : le site te dira ce qui a changé.'));
+      r.append(el('p', null, n + ' fichier(s) du dossier « ' + fichiersLus.nom + ' » ont été mémorisés. Note le sceau affiché plus bas : il te permettra de vérifier plus tard que la photo n’a pas été modifiée.'));
       return;
     }
     var d = comparer(p.fichiers, fichiersLus.fichiers, fichiersLus.illisibles);
     var nb = d.mod.length + d.ajo.length + d.sup.length + d.ill.length + fichiersLus.illisibles.length;
+    if (p.sceau && !(await sceauValide(p))) {
+      r.append(el('p', 'verdict bad', 'La photo enregistrée a été modifiée : ce résultat n’est pas fiable.'));
+    }
     if (nb === 0) {
       r.append(el('p', 'verdict ok', 'Rien n’a changé'));
       r.append(el('p', 'muted', n + ' fichier(s) vérifié(s) par rapport à la photo du ' + new Date(p.date).toLocaleString('fr-FR') + '.'));
@@ -399,7 +489,7 @@ footer { border-top: 1px solid var(--line); padding-block: 28px; color: var(--mu
     r.append(b2);
   }
 
-  // ---------- Événements ----------
+  // ---------- Événements : dossier ----------
   $('choix').addEventListener('change', function (e) {
     var fichiers = Array.prototype.slice.call(e.target.files);
     if (!fichiers.length) return;
@@ -425,18 +515,81 @@ footer { border-top: 1px solid var(--line); padding-block: 28px; color: var(--mu
       var liste = [];
       var enfants = await lireEntrees(dossier.createReader());
       for (var i = 0; i < enfants.length; i++) await parcourirEntree(enfants[i], '', liste);
-      traiter(liste, dossier.name);
+      await traiter(liste, dossier.name);
     })().catch(function () { montrerErreur('Impossible de lire ce dossier.'); });
   });
 
+  // ---------- Événements : photo et sceau ----------
   $('effacer').addEventListener('click', function () { ecrirePhoto(null); fichiersLus = null; $('resultat').hidden = true; afficherPhoto(); });
-  $('restaurer').addEventListener('click', function () {
+
+  $('restaurer').addEventListener('click', async function () {
+    var msg = $('restaurer-msg');
     try {
       var p = JSON.parse($('export').value);
       if (!p || typeof p.fichiers !== 'object' || !p.nom) throw 0;
-      ecrirePhoto(p); afficherPhoto(); $('restaurer-msg').textContent = 'Photo restaurée.';
-      if (fichiersLus) montrerResultat();
-    } catch (e) { $('restaurer-msg').textContent = 'Ce texte n’est pas une photo valide.'; }
+      if (p.sceau && !(await sceauValide(p))) { msg.textContent = 'Refusé : ce texte a été modifié, il ne correspond pas à son sceau.'; return; }
+      ecrirePhoto(p); await afficherPhoto(); msg.textContent = 'Photo restaurée.';
+      if (fichiersLus) await montrerResultat();
+    } catch (e) { msg.textContent = 'Ce texte n’est pas une photo valide.'; }
+  });
+
+  $('sceau-copier').addEventListener('click', function () {
+    var code = $('sceau-code').textContent, b = $('sceau-copier');
+    var fin = function (m) { b.textContent = m; setTimeout(function () { b.textContent = 'Copier'; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(function () { fin('Copié'); }, function () { fin('Note-le à la main'); });
+    else fin('Note-le à la main');
+  });
+
+  $('sceau-verifier').addEventListener('click', async function () {
+    var saisi = $('sceau-saisie').value.toLowerCase().replace(/[^0-9a-f]/g, ''), msg = $('sceau-msg'), p = lirePhoto();
+    msg.className = '';
+    if (saisi.length < 16) { msg.textContent = 'Tape les 16 caractères du sceau que tu as noté.'; return; }
+    if (!p || !p.fichiers) { msg.textContent = 'Il n’y a pas de photo à vérifier.'; return; }
+    var reel = await hacherTexte(canonique(p)); // recalculé à partir du contenu, pas lu dans la photo
+    if (reel.indexOf(saisi) === 0) { msg.className = 't-ok'; msg.textContent = 'Le sceau correspond : la photo est celle que tu avais notée.'; }
+    else { msg.className = 't-del'; msg.textContent = 'Le sceau ne correspond PAS : la photo n’est plus celle que tu avais notée.'; }
+  });
+
+  // ---------- Outil : empreinte d'un fichier ou d'un texte ----------
+  function algo() { return $('h-algo').value; }
+  function afficherEmpreinte(h, source) {
+    $('h-source').textContent = source;
+    $('h-valeur').textContent = h;
+    $('h-resultat').hidden = false;
+    comparerAttendu();
+  }
+  function comparerAttendu() {
+    var attendu = $('h-attendu').value.trim().toLowerCase().replace(/\s+/g, ''), h = $('h-valeur').textContent, m = $('h-verdict');
+    m.className = '';
+    if (!attendu || !h) { m.textContent = ''; return; }
+    if (attendu === h) { m.className = 't-ok'; m.textContent = 'Identique : le fichier ou le texte est bien celui attendu.'; }
+    else { m.className = 't-del'; m.textContent = 'Différent : ce n’est pas le même contenu.'; }
+  }
+  var dernier = null; // { type: 'fichier', fichier } ou { type: 'texte' }
+  async function calculerEmpreinte() {
+    if (!(window.crypto && crypto.subtle)) { $('h-source').textContent = 'Ce navigateur ne sait pas calculer les empreintes.'; $('h-resultat').hidden = false; return; }
+    try {
+      if (dernier && dernier.type === 'fichier') {
+        afficherEmpreinte(await hacher(algo(), await dernier.fichier.arrayBuffer()), 'Fichier « ' + dernier.fichier.name + ' » (' + dernier.fichier.size + ' octets), ' + algo());
+      } else {
+        var t = $('h-texte').value;
+        afficherEmpreinte(await hacher(algo(), new TextEncoder().encode(t)), 'Texte (' + t.length + ' caractère(s)), ' + algo());
+      }
+    } catch (e) { $('h-source').textContent = 'Impossible de lire ce fichier.'; $('h-valeur').textContent = ''; $('h-resultat').hidden = false; }
+  }
+  $('h-fichier').addEventListener('change', function (e) {
+    if (!e.target.files.length) return;
+    dernier = { type: 'fichier', fichier: e.target.files[0] };
+    $('h-texte').value = '';
+    calculerEmpreinte();
+  });
+  $('h-texte').addEventListener('input', function () { dernier = { type: 'texte' }; calculerEmpreinte(); });
+  $('h-algo').addEventListener('change', calculerEmpreinte);
+  $('h-attendu').addEventListener('input', comparerAttendu);
+  $('h-copier').addEventListener('click', function () {
+    var b = $('h-copier'), fin = function (m) { b.textContent = m; setTimeout(function () { b.textContent = 'Copier'; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText($('h-valeur').textContent).then(function () { fin('Copié'); }, function () { fin('Sélectionne le texte'); });
+    else fin('Sélectionne le texte');
   });
 
   afficherPhoto();
