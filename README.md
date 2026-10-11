@@ -1,11 +1,18 @@
-# rust-blue-team
+# FolderGuard
 
-Petits outils de défense écrits en Rust, construits pour apprendre le langage et la logique de détection d'un SOC.
+Petits outils de défense, construits pour apprendre la logique de détection d'un SOC : un outil en ligne de commande écrit en Rust et un site web pour contrôler un dossier.
+
+**Site : https://mickaelb06.github.io/folderguard/**
 
 | Outil | Rôle | État |
 |---|---|---|
-| [`fim`](fim/) | File Integrity Monitor : détecte les fichiers modifiés, ajoutés ou supprimés | Disponible |
+| [`fim`](fim/) | File Integrity Monitor en ligne de commande : détecte les fichiers modifiés, ajoutés ou supprimés | Disponible |
+| [Site web](https://mickaelb06.github.io/folderguard/) | Même contrôle dans le navigateur : on dépose un dossier, rien n'est envoyé (code dans [`docs/`](docs/)) | Disponible |
 | `honeypot` | Faux service réseau qui journalise les tentatives de connexion | À venir |
+
+## Site web
+
+Le dossier [`docs/`](docs/) contient une page unique (HTML et JavaScript, sans serveur), publiée avec GitHub Pages. On y dépose un dossier : le navigateur calcule le SHA-256 de chaque fichier, garde une « photo » et la compare aux dépôts suivants. Les fichiers ne quittent jamais l'ordinateur. La photo est stockée dans le navigateur ; elle est propre à ce site et n'est pas partagée avec l'outil `fim`.
 
 ## fim
 
@@ -22,8 +29,8 @@ Les chemins de la référence sont relatifs au dossier surveillé : `./cible` et
 ### Installation
 ```bash
 # Installer Rust si besoin : https://rustup.rs
-git clone https://github.com/Mickaelb06/rust-blue-team.git
-cd rust-blue-team
+git clone https://github.com/Mickaelb06/folderguard.git
+cd folderguard
 cargo test
 cargo build --release
 # le binaire est dans target/release/fim
@@ -37,11 +44,11 @@ cargo build --release
 
 Exemple de sortie après des changements :
 ```
-MODIFIÉ   cible/a.txt
-AJOUTÉ    cible/sous/d.txt
-SUPPRIMÉ  cible/b.txt
+MODIFIÉ   a.txt
+AJOUTÉ    sous/d.txt
+SUPPRIMÉ  b.txt
 
-1 modifié(s), 1 ajouté(s), 1 supprimé(s)
+1 modifié(s), 1 ajouté(s), 1 supprimé(s), 0 illisible(s)
 ```
 
 Codes de sortie : `0` aucun changement, `1` changements ou éléments illisibles, `2` erreur. Le code `1` permet de brancher l'outil dans un script ou une tâche planifiée.
